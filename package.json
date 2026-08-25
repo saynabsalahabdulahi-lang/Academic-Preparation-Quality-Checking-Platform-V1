@@ -5,7 +5,7 @@
   "description": "Academic Preparation & Quality Checking Platform — helps graduate students prepare and improve their own academic documents before submission.",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/db-deploy.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
