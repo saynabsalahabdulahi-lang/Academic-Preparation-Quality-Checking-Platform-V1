@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { CATEGORY_LABELS } from "@/lib/documents/categories";
 import { AnalyzeButton } from "@/components/analyze-button";
 import { ReadinessReport } from "@/components/readiness-report";
+import { VersionHistory } from "@/components/version-history";
 
 export default async function DocumentPage({
   params,
@@ -93,6 +94,28 @@ export default async function DocumentPage({
               Run the analysis to see the Academic Readiness report and issues.
             </p>
           )}
+          <Link
+            href={`/documents/${document.id}/prepare`}
+            className="inline-block rounded-lg border border-brand-600 px-5 py-2.5 font-medium text-brand-700 transition hover:bg-brand-50"
+          >
+            Prepare &amp; revise →
+          </Link>
+        </section>
+      )}
+
+      {document.versions.length > 1 && (
+        <section className="mb-10">
+          <h2 className="mb-4 text-lg font-semibold">Version history</h2>
+          <VersionHistory
+            documentId={document.id}
+            versions={document.versions.map((v) => ({
+              id: v.id,
+              versionNumber: v.versionNumber,
+              label: v.label,
+              isCurrent: v.id === document.currentVersionId,
+              createdAt: v.createdAt.toISOString(),
+            }))}
+          />
         </section>
       )}
 
