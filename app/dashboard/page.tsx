@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { CATEGORY_LABELS } from "@/lib/documents/categories";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export default async function DashboardPage() {
@@ -43,13 +46,12 @@ export default async function DashboardPage() {
             Upload a Word (.docx) document to begin an analysis.
           </p>
         </div>
-        <button
-          disabled
-          title="Coming in the next phase"
-          className="cursor-not-allowed rounded-lg bg-brand-600/60 px-5 py-2.5 font-medium text-white"
+        <Link
+          href="/documents/new"
+          className="rounded-lg bg-brand-600 px-5 py-2.5 font-medium text-white transition hover:bg-brand-700"
         >
           Upload document
-        </button>
+        </Link>
       </section>
 
       {documents.length === 0 ? (
@@ -59,12 +61,21 @@ export default async function DashboardPage() {
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
           {documents.map((doc) => (
-            <li
-              key={doc.id}
-              className="flex items-center justify-between px-6 py-4"
-            >
-              <span className="font-medium">{doc.title}</span>
-              <span className="text-sm text-slate-500">{doc.status}</span>
+            <li key={doc.id}>
+              <Link
+                href={`/documents/${doc.id}`}
+                className="flex items-center justify-between px-6 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+              >
+                <span>
+                  <span className="font-medium">{doc.title}</span>
+                  <span className="ml-2 text-sm text-slate-500">
+                    {CATEGORY_LABELS[doc.category]}
+                  </span>
+                </span>
+                <span className="text-sm text-slate-500">
+                  {doc.status.replace(/_/g, " ")}
+                </span>
+              </Link>
             </li>
           ))}
         </ul>

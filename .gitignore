@@ -45,3 +45,4 @@ yarn-error.log*
 # local uploaded documents (should live in object storage, never in repo)
 /uploads
 /tmp-uploads
+/.storage
