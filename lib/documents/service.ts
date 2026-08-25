@@ -38,6 +38,16 @@ export async function createDocumentFromUpload(params: {
     throw new InsufficientCreditsError();
   }
 
+  // Only link a program that actually exists; otherwise store none.
+  let resolvedProgramId: string | null = null;
+  if (programId) {
+    const program = await prisma.program.findUnique({
+      where: { id: programId },
+      select: { id: true },
+    });
+    resolvedProgramId = program?.id ?? null;
+  }
+
   const storageKey = generateStorageKey();
   await getStorage().put(storageKey, buffer, DOCX_MIME);
 
@@ -47,7 +57,7 @@ export async function createDocumentFromUpload(params: {
         ownerId,
         title,
         category,
-        programId: programId ?? null,
+        programId: resolvedProgramId,
         status: "PROCESSING",
       },
     });

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { AcademicSelector } from "@/components/academic-selector";
+
 type CategoryOption = { value: string; label: string };
 
 export function UploadForm({ categories }: { categories: CategoryOption[] }) {
@@ -62,6 +64,16 @@ export function UploadForm({ categories }: { categories: CategoryOption[] }) {
           ))}
         </select>
       </label>
+
+      <fieldset className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+        <legend className="px-1 text-sm font-medium">
+          Program guidelines (optional)
+        </legend>
+        <p className="mb-3 text-xs text-slate-500">
+          Selecting your program lets us check against its specific guidelines.
+        </p>
+        <AcademicSelector />
+      </fieldset>
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">Word document</span>

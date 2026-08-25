@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { CATEGORY_LABELS } from "@/lib/documents/categories";
+import { AnalyzeButton } from "@/components/analyze-button";
+import { ReadinessReport } from "@/components/readiness-report";
 
 export default async function DocumentPage({
   params,
@@ -25,6 +27,13 @@ export default async function DocumentPage({
         orderBy: { versionNumber: "desc" },
         include: {
           sections: { orderBy: { order: "asc" } },
+          checks: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: {
+              issues: { orderBy: { createdAt: "asc" } },
+            },
+          },
         },
       },
     },
@@ -35,6 +44,8 @@ export default async function DocumentPage({
   const current =
     document.versions.find((v) => v.id === document.currentVersionId) ??
     document.versions[0];
+
+  const latestCheck = current?.checks[0] ?? null;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -67,6 +78,22 @@ export default async function DocumentPage({
         <p className="mb-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Note: {current.processingError}
         </p>
+      )}
+
+      {current?.processingStatus === "READY" && (
+        <section className="mb-10 space-y-6">
+          <AnalyzeButton
+            documentId={document.id}
+            hasAnalysis={Boolean(latestCheck)}
+          />
+          {latestCheck ? (
+            <ReadinessReport check={latestCheck} issues={latestCheck.issues} />
+          ) : (
+            <p className="text-sm text-slate-500">
+              Run the analysis to see the Academic Readiness report and issues.
+            </p>
+          )}
+        </section>
       )}
 
       <section>
