@@ -4,6 +4,9 @@ import type { NextAuthConfig } from "next-auth";
 // IMPORTANT: do not import Prisma, bcrypt, or other Node-only modules here —
 // this file runs in the edge runtime via middleware.
 export const authConfig = {
+  // Trust the deployment host (Vercel sets this automatically, but being
+  // explicit avoids UntrustedHost errors behind proxies/custom domains).
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
