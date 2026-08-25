@@ -103,19 +103,46 @@ user-friendly error handling — raw provider errors are never shown to students
 ## Development phases
 
 1. ✅ Inspect existing project _(empty repo — greenfield)_
-2. ✅ **Authentication + database foundation** _(this scaffold)_
-3. ⬜ Document upload + secure storage
-4. ⬜ DOCX extraction + document representation
-5. ⬜ University/program/guideline models & selectors
-6. ⬜ Academic analysis engine
-7. ⬜ Issue dashboard
-8. ⬜ Preparation / rewrite engine
-9. ⬜ Original vs. revised comparison
-10. ⬜ Version history
-11. ⬜ Re-check after revision
-12. ⬜ DOCX export
-13. ⬜ Testing / security hardening
-14. ⬜ Vercel production deployment
+2. ✅ Authentication + database foundation
+3. ✅ Document upload + secure storage
+4. ✅ DOCX extraction + document representation
+5. ✅ University/program/guideline models & selectors
+6. ✅ Academic analysis engine
+7. ✅ Issue dashboard (readiness report + ranked issues)
+8. ✅ Preparation / rewrite engine
+9. ✅ Original vs. revised comparison
+10. ✅ Version history (view / restore)
+11. ✅ Re-check after revision (before/after)
+12. ✅ DOCX export
+13. ✅ Testing / security hardening
+14. ◑ Vercel production deployment _(needs provisioned env — see below)_
+
+### Deployment checklist (Phase 14)
+
+The application build (`npm run build`) and all tests pass locally. To go live
+on Vercel:
+
+1. **Provision Neon Postgres** and set `DATABASE_URL` + `DIRECT_URL` in Vercel.
+2. Set `AUTH_SECRET` (`openssl rand -base64 32`) and `ANTHROPIC_API_KEY`.
+3. Add **Vercel Blob** storage (provides `BLOB_READ_WRITE_TOKEN`).
+4. Apply the schema: `npx prisma migrate deploy` (or `prisma db push`) against
+   the production database. Optionally `npm run db:seed` for sample data.
+5. Deploy (push to the connected branch). Verify: sign-up/sign-in, upload,
+   analysis, rewrite, version creation, download, and that User A cannot access
+   User B's document.
+
+> Serverless note: analysis/rewrite routes set `maxDuration = 60`. Very large
+> documents may need a background worker (the pipeline is already structured to
+> allow moving `processDocumentVersion` / `analyzeDocumentVersion` off-request).
+
+### Security hardening (Phase 13)
+
+- Owner-scoped queries on every document/version/section/revision route (IDOR).
+- Baseline security headers (HSTS, X-Content-Type-Options, X-Frame-Options,
+  Referrer-Policy, Permissions-Policy); `x-powered-by` disabled.
+- Rate limiting on register, upload, analyze, and rewrite endpoints.
+- bcrypt password hashing; Zod validation on all external input; AI responses
+  validated before use; internal errors never leaked to clients.
 
 ### Vercel note
 

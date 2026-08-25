@@ -3,8 +3,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { registerSchema } from "@/lib/validation/auth";
+import { rateLimit } from "@/lib/rate-limit";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  // Throttle account creation per client to blunt automated abuse.
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
+  const rl = rateLimit(`register:${ip}`, { limit: 5, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
