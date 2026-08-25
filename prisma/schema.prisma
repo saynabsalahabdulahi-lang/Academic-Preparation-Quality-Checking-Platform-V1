@@ -1,0 +1,440 @@
+// Academic Prepare — Prisma schema (Phase 2 foundation)
+//
+// Design notes:
+// - PostgreSQL (Neon) in production.
+// - Every document-owned row carries an owner relation so queries can be
+//   scoped by user. This is the primary defense against IDOR (see SECURITY).
+// - University guidelines are intentionally flexible: common rules are typed
+//   columns; anything program-specific goes in the `rules` JSON blob.
+// - DocumentCategory is an enum for V1 simplicity. If admins later need to
+//   define arbitrary document types at runtime, migrate it to a table.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum DocumentCategory {
+  ASSIGNMENT
+  RESEARCH_PROPOSAL
+  LITERATURE_REVIEW
+  ARTICLE_REVIEW
+  RESEARCH_ARTICLE
+  THESIS_CHAPTER
+  DISSERTATION_CHAPTER
+  SEMINAR_PAPER
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  ANALYSIS_COMPLETE
+  REVISION_IN_PROGRESS
+  READY_FOR_REVIEW
+  FINAL
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum SectionType {
+  HEADING
+  PARAGRAPH
+  LIST
+  TABLE
+  CITATION
+  REFERENCE
+  QUOTE
+  OTHER
+}
+
+enum IssueSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  SUGGESTION
+}
+
+enum IssueCategory {
+  GRAMMAR
+  SPELLING
+  CLARITY
+  ACADEMIC_TONE
+  REPETITION
+  PARAGRAPH_STRUCTURE
+  LOGICAL_FLOW
+  SECTION_STRUCTURE
+  CITATION_CONSISTENCY
+  REFERENCE_CONSISTENCY
+  GUIDELINE_COMPLIANCE
+  COMPLETENESS
+  TERMINOLOGY_CONSISTENCY
+}
+
+enum RevisionAction {
+  CORRECT_GRAMMAR
+  IMPROVE_CLARITY
+  IMPROVE_TONE
+  IMPROVE_FLOW
+  REDUCE_REPETITION
+  IMPROVE_SENTENCE_STRUCTURE
+  REWRITE_IN_STYLE
+}
+
+enum RevisionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EDITED
+}
+
+enum UsageAction {
+  DOCUMENT_UPLOAD
+  ANALYSIS
+  REWRITE
+  EXPORT
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js models (Prisma adapter) + application user
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  // Credentials login. Null for users created via OAuth only.
+  passwordHash  String?
+  role          Role      @default(STUDENT)
+
+  // Server-side usage/credits (never trust the client for these).
+  creditBalance Int       @default(10)
+
+  accounts       Account[]
+  sessions       Session[]
+  documents      Document[]
+  writingProfile WritingProfile?
+  usageRecords   UsageRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// University guideline engine
+// ---------------------------------------------------------------------------
+
+model University {
+  id        String    @id @default(cuid())
+  name      String
+  country   String?
+  colleges  College[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([name, country])
+}
+
+model College {
+  id           String       @id @default(cuid())
+  name         String
+  universityId String
+  university   University   @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departments  Department[]
+  createdAt    DateTime     @default(now())
+
+  @@unique([universityId, name])
+  @@index([universityId])
+}
+
+model Department {
+  id        String    @id @default(cuid())
+  name      String
+  collegeId String
+  college   College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  programs  Program[]
+  createdAt DateTime  @default(now())
+
+  @@unique([collegeId, name])
+  @@index([collegeId])
+}
+
+model Program {
+  id           String      @id @default(cuid())
+  name         String
+  degreeLevel  String? // e.g. "Masters", "PhD"
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  guidelines   Guideline[]
+  documents    Document[]
+  createdAt    DateTime    @default(now())
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+}
+
+// A guideline set is scoped to a Program and (optionally) a document category.
+// Common formatting rules are typed columns; everything else is in `rules`.
+model Guideline {
+  id        String            @id @default(cuid())
+  programId String
+  program   Program           @relation(fields: [programId], references: [id], onDelete: Cascade)
+  category  DocumentCategory? // null = applies to all categories in the program
+
+  citationStyle  String? // e.g. "APA 7", "Harvard"
+  referenceStyle String?
+  fontFamily     String?
+  fontSizePt     Float?
+  lineSpacing    Float?
+  marginsCm      Float?
+  minWords       Int?
+  maxWords       Int?
+
+  requiredSections    String[] // ordered list of required section headings
+  prohibitedFormatting String[]
+
+  // Free-form / program-specific rules that don't fit the typed columns.
+  rules Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([programId, category])
+  @@index([programId])
+}
+
+// ---------------------------------------------------------------------------
+// Documents, versions, sections
+// ---------------------------------------------------------------------------
+
+model Document {
+  id       String           @id @default(cuid())
+  ownerId  String
+  owner    User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title    String
+  category DocumentCategory
+  status   DocumentStatus   @default(UPLOADED)
+
+  // Optional academic context (which guideline set applies).
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  versions          DocumentVersion[]
+  currentVersionId  String?           @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([ownerId, status])
+}
+
+model DocumentVersion {
+  id            String           @id @default(cuid())
+  documentId    String
+  document      Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  label         String? // e.g. "Original upload", "Grammar corrections"
+
+  // File storage metadata — the file itself lives in object storage (Blob).
+  storageKey       String?
+  originalFilename String?
+  mimeType         String?
+  sizeBytes        Int?
+  processingStatus ProcessingStatus @default(PENDING)
+  processingError  String?
+
+  sections DocumentSection[]
+  checks   Check[]
+  issues   Issue[]
+  revisions Revision[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId])
+}
+
+model DocumentSection {
+  id        String          @id @default(cuid())
+  versionId String
+  version   DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  order     Int
+  type      SectionType     @default(PARAGRAPH)
+  heading   String?
+  text      String          @db.Text
+
+  issues Issue[]
+
+  @@index([versionId])
+  @@unique([versionId, order])
+}
+
+// ---------------------------------------------------------------------------
+// Analysis: checks, issues, revisions
+// ---------------------------------------------------------------------------
+
+// One analysis run over a document version. Scores are computed from actual
+// checks, never inflated because a rewrite happened.
+model Check {
+  id        String          @id @default(cuid())
+  versionId String
+  version   DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  structureScore    Int?
+  academicScore     Int?
+  citationScore     Int?
+  referenceScore    Int?
+  complianceScore   Int?
+  clarityScore      Int?
+  overallScore      Int? // Academic Readiness Score (0-100)
+
+  // Which analysis modules ran, timing, provider, etc.
+  metadata Json?
+
+  issues    Issue[]
+  createdAt DateTime @default(now())
+
+  @@index([versionId])
+}
+
+model Issue {
+  id        String          @id @default(cuid())
+  versionId String
+  version   DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  checkId   String?
+  check     Check?          @relation(fields: [checkId], references: [id], onDelete: SetNull)
+  sectionId String?
+  section   DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  category      IssueCategory
+  severity      IssueSeverity
+  location      String? // human-readable location (e.g. "Section 2, para 3")
+  originalText  String?  @db.Text
+  explanation   String   @db.Text
+  suggestedAction String? @db.Text
+  suggestedRevision String? @db.Text
+
+  resolved  Boolean  @default(false)
+  revisions Revision[]
+
+  createdAt DateTime @default(now())
+
+  @@index([versionId])
+  @@index([versionId, severity])
+}
+
+model Revision {
+  id        String          @id @default(cuid())
+  versionId String
+  version   DocumentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  issueId   String?
+  issue     Issue?          @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  action       RevisionAction
+  originalText String         @db.Text
+  revisedText  String         @db.Text
+  whatChanged  String?        @db.Text
+  whyChanged   String?        @db.Text
+  confidence   Float?
+  warnings     String[]
+
+  status    RevisionStatus @default(PENDING)
+  attempt   Int            @default(1) // increments on "Rewrite Again"
+
+  createdAt DateTime @default(now())
+
+  @@index([versionId])
+  @@index([issueId])
+}
+
+// ---------------------------------------------------------------------------
+// Writing style profile & usage tracking
+// ---------------------------------------------------------------------------
+
+model WritingProfile {
+  id      String @id @default(cuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Sample texts the student provided, and derived stylistic features.
+  samples  String[] @db.Text
+  features Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UsageRecord {
+  id       String      @id @default(cuid())
+  userId   String
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action   UsageAction
+  credits  Int         @default(0) // credits consumed by this action
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, action])
+}
