@@ -190,10 +190,6 @@ export default async function DocumentPage({
           </ol>
         )}
       </section>
-
-      <p className="mt-10 text-sm text-slate-500">
-        Analysis (the Academic Readiness report) arrives in Phase 6.
-      </p>
     </main>
   );
 }

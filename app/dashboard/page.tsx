@@ -56,7 +56,7 @@ export default async function DashboardPage() {
 
       {documents.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-500 dark:border-slate-700">
-          No documents yet. Document upload arrives in Phase 3.
+          No documents yet. Click &ldquo;Upload document&rdquo; to get started.
         </div>
       ) : (
         <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
