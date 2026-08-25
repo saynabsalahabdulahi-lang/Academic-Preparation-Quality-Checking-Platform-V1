@@ -100,8 +100,17 @@ export async function POST(request: Request) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: err.message }, { status: 402 });
     }
-    // Never leak internal errors to the client.
     console.error("Document upload failed:", err);
+    // Give an actionable message when file storage isn't configured yet.
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json(
+        {
+          error:
+            "File storage isn't set up yet. Add BLOB_READ_WRITE_TOKEN in Vercel and redeploy.",
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json(
       { error: "Upload failed. Please try again." },
       { status: 500 },
