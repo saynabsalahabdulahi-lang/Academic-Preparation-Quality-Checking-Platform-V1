@@ -48,6 +48,16 @@ export default async function DocumentPage({
 
   const latestCheck = current?.checks[0] ?? null;
 
+  // Phase 11 — before/after: compare the current version's score with the most
+  // recent earlier version that was analyzed.
+  const priorWithCheck = document.versions
+    .filter(
+      (v) => v.id !== current?.id && (v.checks[0]?.overallScore ?? null) !== null,
+    )
+    .sort((a, b) => b.versionNumber - a.versionNumber)[0];
+  const beforeScore = priorWithCheck?.checks[0]?.overallScore ?? null;
+  const afterScore = latestCheck?.overallScore ?? null;
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <Link href="/dashboard" className="text-sm text-brand-600">
@@ -87,6 +97,27 @@ export default async function DocumentPage({
             documentId={document.id}
             hasAnalysis={Boolean(latestCheck)}
           />
+          {beforeScore !== null && afterScore !== null && (
+            <div className="flex items-center gap-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+              <span className="text-sm text-slate-500">Readiness change:</span>
+              <span className="font-semibold text-slate-500">
+                Before {beforeScore}
+              </span>
+              <span aria-hidden>→</span>
+              <span
+                className={`font-bold ${
+                  afterScore >= beforeScore ? "text-emerald-600" : "text-red-600"
+                }`}
+              >
+                After {afterScore}
+              </span>
+              <span className="text-sm text-slate-400">
+                ({afterScore >= beforeScore ? "+" : ""}
+                {afterScore - beforeScore})
+              </span>
+            </div>
+          )}
+
           {latestCheck ? (
             <ReadinessReport check={latestCheck} issues={latestCheck.issues} />
           ) : (
@@ -94,12 +125,20 @@ export default async function DocumentPage({
               Run the analysis to see the Academic Readiness report and issues.
             </p>
           )}
-          <Link
-            href={`/documents/${document.id}/prepare`}
-            className="inline-block rounded-lg border border-brand-600 px-5 py-2.5 font-medium text-brand-700 transition hover:bg-brand-50"
-          >
-            Prepare &amp; revise →
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/documents/${document.id}/prepare`}
+              className="inline-block rounded-lg border border-brand-600 px-5 py-2.5 font-medium text-brand-700 transition hover:bg-brand-50"
+            >
+              Prepare &amp; revise →
+            </Link>
+            <a
+              href={`/api/documents/${document.id}/download`}
+              className="inline-block rounded-lg border border-slate-300 px-5 py-2.5 font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              Download .docx
+            </a>
+          </div>
         </section>
       )}
 
