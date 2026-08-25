@@ -16,7 +16,10 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // Neon's Vercel integration provides an unpooled/direct connection under this
+  // name; Prisma uses it for migrations / `db push`. Falls back to DATABASE_URL
+  // when a separate direct URL is not configured.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ---------------------------------------------------------------------------
