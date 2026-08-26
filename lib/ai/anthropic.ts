@@ -23,12 +23,62 @@ import {
 } from "@/lib/ai/prompts";
 
 // Configurable via env; model id is intentionally not hard-coded elsewhere.
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
+
+// Generous enough that structured responses are never truncated mid-JSON.
+const MAX_TOKENS = 16000;
 
 export class AIResponseError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AIResponseError";
+  }
+}
+
+/**
+ * Rebuild `{"issues":[...]}` from a response that was cut off mid-array by
+ * keeping only the complete objects. Returns null when nothing is salvageable.
+ */
+function salvageIssues(text: string): unknown | null {
+  const arrayStart = text.indexOf("[", text.indexOf('"issues"'));
+  if (arrayStart === -1) return null;
+
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = arrayStart; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    if (inString) continue;
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+
+  if (objects.length === 0) return null;
+  try {
+    return JSON.parse(`{"issues":[${objects.join(",")}]}`);
+  } catch {
+    return null;
   }
 }
 
@@ -41,10 +91,16 @@ function extractJson(text: string): unknown {
     // Fall back to locating the outermost JSON braces.
     const start = trimmed.search(/[[{]/);
     const end = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
-    if (start === -1 || end === -1 || end <= start) {
-      throw new AIResponseError("No JSON found in AI response");
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(trimmed.slice(start, end + 1));
+      } catch {
+        // fall through to salvage
+      }
     }
-    return JSON.parse(trimmed.slice(start, end + 1));
+    const salvaged = salvageIssues(trimmed);
+    if (salvaged) return salvaged;
+    throw new AIResponseError("No usable JSON found in AI response");
   }
 }
 
@@ -61,18 +117,25 @@ export class AnthropicProvider implements AIProvider {
     this.model = opts?.model ?? DEFAULT_MODEL;
   }
 
-  private async complete(system: string, prompt: string): Promise<string> {
+  private async complete(
+    system: string,
+    prompt: string,
+    effort: "low" | "medium" = "low",
+  ): Promise<string> {
     const message = await this.client.messages.create({
       model: this.model,
-      max_tokens: 4096,
+      max_tokens: MAX_TOKENS,
+      // Keep latency predictable: these routes run inside a serverless request.
+      output_config: { effort },
       system,
       messages: [{ role: "user", content: prompt }],
     });
-    const block = message.content.find((b) => b.type === "text");
-    if (!block || block.type !== "text") {
-      throw new AIResponseError("AI response contained no text");
-    }
-    return block.text;
+    const text = message.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("");
+    if (!text) throw new AIResponseError("AI response contained no text");
+    return text;
   }
 
   /**
@@ -84,11 +147,12 @@ export class AnthropicProvider implements AIProvider {
     system: string,
     prompt: string,
     schema: S,
+    effort: "low" | "medium" = "low",
   ): Promise<z.infer<S>> {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const raw = await this.complete(system, prompt);
+        const raw = await this.complete(system, prompt, effort);
         return schema.parse(extractJson(raw));
       } catch (err) {
         lastError = err;
@@ -118,6 +182,7 @@ export class AnthropicProvider implements AIProvider {
       SYSTEM_REWRITE,
       rewritePrompt(input),
       rewriteResponseSchema,
+      "medium",
     );
   }
 

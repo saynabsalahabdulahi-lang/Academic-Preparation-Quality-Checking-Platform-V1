@@ -5,10 +5,11 @@ import { computeScores } from "@/lib/analysis/score";
 import { PROMPT_VERSION } from "@/lib/ai/prompts";
 import type { GuidelineContext } from "@/lib/ai/provider";
 
-// Cap the text sent for a single analysis pass. Larger documents are truncated
-// with a warning; section-level analysis for long documents is a later
-// enhancement (and a reason the pipeline is kept async-friendly).
-const MAX_ANALYSIS_CHARS = 24_000;
+// A long document is analysed in several smaller passes rather than one huge
+// request: each chunk returns a bounded response (so it is never truncated
+// mid-JSON) and the chunks run concurrently to stay inside the request budget.
+const CHUNK_CHARS = 6_000;
+const MAX_CHUNKS = 8;
 
 export class AnalysisError extends Error {
   constructor(message: string) {
@@ -17,17 +18,29 @@ export class AnalysisError extends Error {
   }
 }
 
-function buildText(
+/** Split the document into chunks, keeping whole sections together. */
+export function buildChunks(
   sections: { type: string; heading: string | null; text: string }[],
-): { text: string; truncated: boolean } {
+  chunkChars: number = CHUNK_CHARS,
+  maxChunks: number = MAX_CHUNKS,
+): { chunks: string[]; truncated: boolean } {
   const parts = sections.map((s) =>
     s.type === "HEADING" && s.heading ? `\n## ${s.heading}` : s.text,
   );
-  const joined = parts.join("\n\n");
-  if (joined.length <= MAX_ANALYSIS_CHARS) {
-    return { text: joined, truncated: false };
+
+  const chunks: string[] = [];
+  let current = "";
+  for (const part of parts) {
+    if (current && current.length + part.length + 2 > chunkChars) {
+      chunks.push(current);
+      current = "";
+    }
+    current = current ? `${current}\n\n${part}` : part;
   }
-  return { text: joined.slice(0, MAX_ANALYSIS_CHARS), truncated: true };
+  if (current) chunks.push(current);
+
+  const truncated = chunks.length > maxChunks;
+  return { chunks: chunks.slice(0, maxChunks), truncated };
 }
 
 /**
@@ -73,17 +86,40 @@ export async function analyzeDocumentVersion(
     }
   }
 
-  const { text, truncated } = buildText(version.sections);
+  const { chunks, truncated } = buildChunks(version.sections);
 
   const provider = opts?.provider ?? getAIProvider();
-  const result = await provider.analyzeDocument({
-    text,
-    documentCategory: document.category,
-    guideline: guidelineContext,
-  });
+
+  // Analyse chunks concurrently and merge. One failing chunk must not lose the
+  // whole report, but if every chunk fails the analysis genuinely failed.
+  const settled = await Promise.allSettled(
+    chunks.map((text) =>
+      provider.analyzeDocument({
+        text,
+        documentCategory: document.category,
+        guideline: guidelineContext,
+      }),
+    ),
+  );
+
+  const succeeded = settled.filter(
+    (r): r is PromiseFulfilledResult<Awaited<ReturnType<AIProvider["analyzeDocument"]>>> =>
+      r.status === "fulfilled",
+  );
+  if (succeeded.length === 0) {
+    const reason = settled.find((r) => r.status === "rejected");
+    throw new AnalysisError(
+      reason && "reason" in reason
+        ? `The analysis service could not process this document. ${String(reason.reason).slice(0, 200)}`
+        : "The analysis service could not process this document.",
+    );
+  }
+
+  const issues = succeeded.flatMap((r) => r.value.issues);
+  const partial = succeeded.length < settled.length;
 
   const scores = computeScores(
-    result.issues.map((i) => ({ category: i.category, severity: i.severity })),
+    issues.map((i) => ({ category: i.category, severity: i.severity })),
   );
 
   const check = await prisma.$transaction(async (tx) => {
@@ -103,16 +139,18 @@ export async function analyzeDocumentVersion(
         overallScore: scores.overall,
         metadata: {
           promptVersion: PROMPT_VERSION,
-          issueCount: result.issues.length,
+          issueCount: issues.length,
           truncated,
+          partial,
+          chunks: settled.length,
           usedGuideline: Boolean(guidelineContext),
         },
       },
     });
 
-    if (result.issues.length > 0) {
+    if (issues.length > 0) {
       await tx.issue.createMany({
-        data: result.issues.map((i) => ({
+        data: issues.map((i) => ({
           versionId,
           checkId: created.id,
           category: i.category,
@@ -137,7 +175,7 @@ export async function analyzeDocumentVersion(
   return {
     checkId: check.id,
     scores,
-    issueCount: result.issues.length,
+    issueCount: issues.length,
     truncated,
   };
 }
