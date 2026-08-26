@@ -16,12 +16,13 @@ export default async function DashboardPage() {
     take: 10,
   });
 
-  const account = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { creditBalance: true },
-  });
-
-  const admin = await isAdmin();
+  const [account, admin] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { creditBalance: true },
+    }),
+    isAdmin(),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
-            {account?.creditBalance ?? 0} credits
+            {admin ? "Unlimited credits" : `${account?.creditBalance ?? 0} credits`}
           </span>
           {admin && (
             <Link
