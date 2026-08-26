@@ -40,6 +40,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ready,
+      version: "2025-08-25-keys-check",
       env,
       database,
       tables,
