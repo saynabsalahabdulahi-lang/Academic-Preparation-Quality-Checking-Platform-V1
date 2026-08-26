@@ -17,6 +17,9 @@ a swappable `AIProvider` · Tailwind · Vitest.
 Before committing, run **typecheck + lint + test + build**. Keep them all green.
 
 ## Architecture rules
+- **Model choice is a cost decision.** Default is `claude-sonnet-5`; override
+  with `ANTHROPIC_MODEL` (`claude-opus-5` deepest, `claude-haiku-4-5` cheapest).
+  Analysis makes one call per chunk, so cost scales with document length.
 - **AI access only through `lib/ai` (`AIProvider`)**. Prompts live in
   `lib/ai/prompts` (versioned via `PROMPT_VERSION`); every AI response is
   validated with the Zod schemas in `lib/ai/schemas.ts`. Never leak raw

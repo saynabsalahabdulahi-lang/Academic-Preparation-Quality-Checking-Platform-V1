@@ -23,7 +23,10 @@ import {
 } from "@/lib/ai/prompts";
 
 // Configurable via env; model id is intentionally not hard-coded elsewhere.
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
+// Sonnet balances analysis quality against cost per document; set
+// ANTHROPIC_MODEL to override (e.g. claude-opus-5 for the deepest feedback,
+// claude-haiku-4-5 for the cheapest).
+const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
 
 // Generous enough that structured responses are never truncated mid-JSON.
 const MAX_TOKENS = 16000;
