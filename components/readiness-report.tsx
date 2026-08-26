@@ -82,9 +82,18 @@ export function ReadinessReport({
           {dims.map((d) => (
             <div key={d.label}>
               <dt className="text-xs text-slate-500">{d.label}</dt>
-              <dd className={`font-semibold ${scoreColor(d.value ?? 0)}`}>
-                {d.value ?? 0}%
-              </dd>
+              {d.value === null ? (
+                <dd
+                  className="font-medium text-slate-400"
+                  title="Select a program with guidelines to check this"
+                >
+                  Not checked
+                </dd>
+              ) : (
+                <dd className={`font-semibold ${scoreColor(d.value)}`}>
+                  {d.value}%
+                </dd>
+              )}
             </div>
           ))}
         </dl>

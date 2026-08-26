@@ -48,6 +48,28 @@ describe("Academic Readiness scoring", () => {
     expect(s.clarity).toBe(75);
     expect(s.overall).toBe(96);
   });
+
+  it("reports compliance as not checked when no guideline applied", () => {
+    const s = computeScores([], 0, { guidelineApplied: false });
+    expect(s.compliance).toBeNull();
+    // Overall averages only the dimensions that were actually checked.
+    expect(s.overall).toBe(100);
+  });
+
+  it("excludes unchecked compliance from the overall average", () => {
+    const withGuideline = computeScores(
+      [{ category: "CLARITY", severity: "CRITICAL" }],
+      0,
+      { guidelineApplied: true },
+    );
+    const without = computeScores(
+      [{ category: "CLARITY", severity: "CRITICAL" }],
+      0,
+      { guidelineApplied: false },
+    );
+    // 5 checked dimensions instead of 6 -> the same penalty weighs more.
+    expect(without.overall).toBeLessThan(withGuideline.overall);
+  });
 });
 
 describe("length-proportional scoring", () => {

@@ -6,7 +6,7 @@
  * prompt that produced them (stored in Check.metadata).
  */
 
-export const PROMPT_VERSION = "2026-08-25.2";
+export const PROMPT_VERSION = "2026-08-25.3";
 
 // Shared guardrails injected into every rewrite/analysis prompt. These enforce
 // the product's integrity constraints (see MASTER PROMPT sections 9 & 20).
@@ -39,9 +39,23 @@ export function analyzePrompt(input: {
   text: string;
   documentCategory: string;
   guideline?: unknown;
+  part?: number;
+  totalParts?: number;
 }): string {
+  const isExcerpt = (input.totalParts ?? 1) > 1;
+
   return [
     `Document type: ${input.documentCategory}`,
+    isExcerpt
+      ? [
+          `IMPORTANT: the text below is EXCERPT ${input.part} of ${input.totalParts}`,
+          "from a longer document. You are seeing only this portion. Judge only",
+          "the text shown, and do NOT report that sections are missing, that the",
+          "reference list is absent, or that the text starts or ends abruptly —",
+          "those are artefacts of the excerpt boundary, not faults in the",
+          "student's document.",
+        ].join(" ")
+      : "",
     input.guideline
       ? `Applicable guideline context (JSON): ${JSON.stringify(input.guideline)}`
       : "No specific university guideline provided.",
@@ -58,7 +72,9 @@ export function analyzePrompt(input: {
     "",
     "DOCUMENT:",
     input.text,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function rewritePrompt(input: {

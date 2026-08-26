@@ -21,6 +21,9 @@ export interface AnalyzeInput {
   text: string;
   documentCategory: string;
   guideline?: GuidelineContext;
+  /** Position of this excerpt when a document is analysed in several passes. */
+  part?: number;
+  totalParts?: number;
 }
 
 export interface RewriteInput {

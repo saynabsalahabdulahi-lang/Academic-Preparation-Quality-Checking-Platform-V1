@@ -20,7 +20,8 @@ export interface Scores {
   academic: number;
   citation: number;
   reference: number;
-  compliance: number;
+  /** null when no program guideline applied, so nothing was actually checked. */
+  compliance: number | null;
   clarity: number;
   overall: number;
 }
@@ -75,7 +76,9 @@ function densityFactor(wordCount: number): number {
 export function computeScores(
   issues: ScoreInput[],
   wordCount = 0,
+  opts: { guidelineApplied?: boolean } = {},
 ): Scores {
+  const { guidelineApplied = true } = opts;
   const factor = densityFactor(wordCount);
   const penalties: Record<Dimension, number> = {
     structure: 0,
@@ -96,19 +99,28 @@ export function computeScores(
     academic: clamp(100 - penalties.academic),
     citation: clamp(100 - penalties.citation),
     reference: clamp(100 - penalties.reference),
-    compliance: clamp(100 - penalties.compliance),
     clarity: clamp(100 - penalties.clarity),
   };
 
+  // Without a program guideline nothing was checked for compliance, so it is
+  // reported as "not checked" and excluded from the overall score rather than
+  // contributing an unearned 100%.
+  const compliance = guidelineApplied
+    ? clamp(100 - penalties.compliance)
+    : null;
+
+  const scored = [
+    dims.structure,
+    dims.academic,
+    dims.citation,
+    dims.reference,
+    dims.clarity,
+    ...(compliance === null ? [] : [compliance]),
+  ];
+
   const overall = clamp(
-    (dims.structure +
-      dims.academic +
-      dims.citation +
-      dims.reference +
-      dims.compliance +
-      dims.clarity) /
-      6,
+    scored.reduce((sum, v) => sum + v, 0) / scored.length,
   );
 
-  return { ...dims, overall };
+  return { ...dims, compliance, overall };
 }

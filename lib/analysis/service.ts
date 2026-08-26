@@ -118,12 +118,17 @@ export async function analyzeDocumentVersion(
   // Analyse chunks with bounded concurrency and merge. One failing chunk must
   // not lose the whole report, but if every chunk fails the analysis genuinely
   // failed. The concurrency cap keeps us within provider rate limits.
-  const settled = await mapWithConcurrency(chunks, CONCURRENCY, (text) =>
-    provider.analyzeDocument({
-      text,
-      documentCategory: document.category,
-      guideline: guidelineContext,
-    }),
+  const settled = await mapWithConcurrency(
+    chunks.map((text, index) => ({ text, index })),
+    CONCURRENCY,
+    ({ text, index }) =>
+      provider.analyzeDocument({
+        text,
+        documentCategory: document.category,
+        guideline: guidelineContext,
+        part: index + 1,
+        totalParts: chunks.length,
+      }),
   );
 
   const succeeded = settled.filter(
@@ -150,6 +155,7 @@ export async function analyzeDocumentVersion(
   const scores = computeScores(
     issues.map((i) => ({ category: i.category, severity: i.severity })),
     wordCount,
+    { guidelineApplied: Boolean(guidelineContext) },
   );
 
   const check = await prisma.$transaction(async (tx) => {
