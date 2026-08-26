@@ -7,6 +7,13 @@ import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
+// Credits granted to a new student account. Tune without a code change by
+// setting SIGNUP_CREDITS; the schema default applies when it is unset.
+const SIGNUP_CREDITS = (() => {
+  const raw = Number(process.env.SIGNUP_CREDITS);
+  return Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : null;
+})();
+
 export async function POST(request: Request) {
   // Throttle account creation per client to blunt automated abuse.
   const ip =
@@ -53,6 +60,7 @@ export async function POST(request: Request) {
       email,
       name: parsed.data.name,
       passwordHash,
+      ...(SIGNUP_CREDITS === null ? {} : { creditBalance: SIGNUP_CREDITS }),
     },
   });
 
