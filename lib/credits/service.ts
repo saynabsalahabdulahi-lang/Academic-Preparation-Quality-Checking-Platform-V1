@@ -8,6 +8,14 @@ function envInt(name: string, fallback: number): number {
 }
 
 /**
+ * Master switch. With CREDITS_ENABLED="false" nobody is metered: every student
+ * gets unrestricted access to upload, analysis and rewrite. Usage is still
+ * recorded, so spend remains visible — but the only remaining ceiling is the
+ * provider's own billing limit, so keep a monthly cap set there.
+ */
+export const CREDITS_ENABLED = process.env.CREDITS_ENABLED !== "false";
+
+/**
  * Credit price per action, weighted by what each actually costs to run: an
  * analysis reads the whole document in several AI passes, while a rewrite
  * touches a single section — roughly a tenth of the work. Charging both one
@@ -36,30 +44,36 @@ export class InsufficientCreditsError extends Error {
 export async function assertCredits(
   userId: string,
   cost: number,
-): Promise<{ isAdmin: boolean }> {
+): Promise<{ metered: boolean }> {
+  if (!CREDITS_ENABLED) return { metered: false };
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { creditBalance: true, role: true },
   });
   if (!user) throw new InsufficientCreditsError("Account not found.");
 
-  const isAdmin = user.role === "ADMIN";
-  if (!isAdmin && user.creditBalance < cost) {
-    throw new InsufficientCreditsError();
-  }
-  return { isAdmin };
+  // Administrators run the platform, so their work is never blocked.
+  if (user.role === "ADMIN") return { metered: false };
+
+  if (user.creditBalance < cost) throw new InsufficientCreditsError();
+  return { metered: true };
 }
 
-/** Record usage and debit the balance (administrators are not debited). */
+/**
+ * Record usage and debit the balance. Unmetered work (administrators, or
+ * credits switched off entirely) is still recorded at zero so usage reporting
+ * stays complete.
+ */
 export async function chargeCredits(params: {
   userId: string;
   action: UsageAction;
   cost: number;
-  isAdmin: boolean;
+  metered: boolean;
   metadata?: Prisma.InputJsonValue;
 }): Promise<void> {
-  const { userId, action, cost, isAdmin, metadata } = params;
-  const credits = isAdmin ? 0 : cost;
+  const { userId, action, cost, metered, metadata } = params;
+  const credits = metered ? cost : 0;
 
   await prisma.$transaction([
     ...(credits > 0

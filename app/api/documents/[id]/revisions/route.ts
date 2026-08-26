@@ -56,9 +56,9 @@ export async function POST(
     return NextResponse.json({ error: "Section not found." }, { status: 404 });
   }
 
-  let isAdmin = false;
+  let metered = false;
   try {
-    ({ isAdmin } = await assertCredits(user.id, CREDIT_COSTS.REWRITE));
+    ({ metered } = await assertCredits(user.id, CREDIT_COSTS.REWRITE));
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: err.message }, { status: 402 });
@@ -82,7 +82,7 @@ export async function POST(
       userId: user.id,
       action: "REWRITE",
       cost: CREDIT_COSTS.REWRITE,
-      isAdmin,
+      metered,
       metadata: { documentId: id, revisionId: revision.id },
     });
 

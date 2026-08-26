@@ -49,9 +49,9 @@ export async function POST(
   }
 
   // Server-side credit check (administrators are not metered).
-  let isAdmin = false;
+  let metered = false;
   try {
-    ({ isAdmin } = await assertCredits(user.id, CREDIT_COSTS.ANALYSIS));
+    ({ metered } = await assertCredits(user.id, CREDIT_COSTS.ANALYSIS));
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: err.message }, { status: 402 });
@@ -66,7 +66,7 @@ export async function POST(
       userId: user.id,
       action: "ANALYSIS",
       cost: CREDIT_COSTS.ANALYSIS,
-      isAdmin,
+      metered,
       metadata: { documentId: document.id, checkId: result.checkId },
     });
 

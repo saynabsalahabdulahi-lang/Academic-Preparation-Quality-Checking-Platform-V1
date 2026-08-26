@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/admin";
+import { CREDITS_ENABLED } from "@/lib/credits/service";
 import { prisma } from "@/lib/db";
 import { CATEGORY_LABELS } from "@/lib/documents/categories";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -37,7 +38,9 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
-            {admin ? "Unlimited credits" : `${account?.creditBalance ?? 0} credits`}
+            {!CREDITS_ENABLED || admin
+              ? "Unlimited"
+              : `${account?.creditBalance ?? 0} credits`}
           </span>
           {admin && (
             <Link

@@ -18,3 +18,11 @@ describe("credit pricing", () => {
     expect(CREDIT_COSTS.EXPORT).toBe(0);
   });
 });
+
+describe("credit metering switch", () => {
+  it("is enabled unless explicitly turned off", async () => {
+    const { CREDITS_ENABLED } = await import("@/lib/credits/service");
+    // Default posture meters students; CREDITS_ENABLED="false" opts out.
+    expect(CREDITS_ENABLED).toBe(true);
+  });
+});

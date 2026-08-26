@@ -28,7 +28,7 @@ export async function createDocumentFromUpload(params: {
   const { ownerId, title, category, programId, buffer, filename } = params;
 
   // Enforce credits server-side (never trust the client).
-  const { isAdmin } = await assertCredits(ownerId, CREDIT_COSTS.DOCUMENT_UPLOAD);
+  const { metered } = await assertCredits(ownerId, CREDIT_COSTS.DOCUMENT_UPLOAD);
 
   // Only link a program that actually exists; otherwise store none.
   let resolvedProgramId: string | null = null;
@@ -79,7 +79,7 @@ export async function createDocumentFromUpload(params: {
     userId: ownerId,
     action: "DOCUMENT_UPLOAD",
     cost: CREDIT_COSTS.DOCUMENT_UPLOAD,
-    isAdmin,
+    metered,
     metadata: { documentId: document.id },
   });
 

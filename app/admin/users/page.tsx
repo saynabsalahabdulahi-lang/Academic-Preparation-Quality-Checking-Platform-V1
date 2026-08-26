@@ -26,8 +26,7 @@ export default async function AdminUsersPage() {
       </Link>
       <h1 className="mb-1 mt-4 text-2xl font-bold">Students &amp; credits</h1>
       <p className="mb-8 text-sm text-slate-500">
-        Each upload, analysis and rewrite uses one credit. Administrators are
-        never charged.
+        Credits meter student usage. Administrators are never charged.
       </p>
 
       <UserCredits
