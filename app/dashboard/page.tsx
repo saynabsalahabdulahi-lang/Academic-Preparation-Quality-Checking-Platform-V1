@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db";
 import { CATEGORY_LABELS } from "@/lib/documents/categories";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -20,6 +21,8 @@ export default async function DashboardPage() {
     select: { creditBalance: true },
   });
 
+  const admin = await isAdmin();
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-10 flex items-center justify-between">
@@ -35,6 +38,14 @@ export default async function DashboardPage() {
           <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
             {account?.creditBalance ?? 0} credits
           </span>
+          {admin && (
+            <Link
+              href="/admin"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              Admin
+            </Link>
+          )}
           <SignOutButton />
         </div>
       </header>
