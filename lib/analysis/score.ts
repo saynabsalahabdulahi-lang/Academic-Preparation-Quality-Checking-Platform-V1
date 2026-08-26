@@ -61,7 +61,22 @@ function clamp(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-export function computeScores(issues: ScoreInput[]): Scores {
+/**
+ * Scale penalties by document length so a score reflects the *rate* of issues,
+ * not the sheer size of the document. Without this, a long thesis is punished
+ * simply for containing more text than a short assignment.
+ */
+function densityFactor(wordCount: number): number {
+  const REFERENCE_WORDS = 1000;
+  if (wordCount <= REFERENCE_WORDS) return 1;
+  return REFERENCE_WORDS / wordCount;
+}
+
+export function computeScores(
+  issues: ScoreInput[],
+  wordCount = 0,
+): Scores {
+  const factor = densityFactor(wordCount);
   const penalties: Record<Dimension, number> = {
     structure: 0,
     academic: 0,
@@ -73,7 +88,7 @@ export function computeScores(issues: ScoreInput[]): Scores {
 
   for (const issue of issues) {
     const dim = CATEGORY_DIMENSION[issue.category];
-    penalties[dim] += SEVERITY_PENALTY[issue.severity];
+    penalties[dim] += SEVERITY_PENALTY[issue.severity] * factor;
   }
 
   const dims = {

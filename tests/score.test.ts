@@ -49,3 +49,31 @@ describe("Academic Readiness scoring", () => {
     expect(s.overall).toBe(96);
   });
 });
+
+describe("length-proportional scoring", () => {
+  const manyIssues = Array.from({ length: 30 }, () => ({
+    category: "SECTION_STRUCTURE" as const,
+    severity: "MEDIUM" as const,
+  }));
+
+  it("does not zero out a long document for having more issues", () => {
+    // Same 30 issues, but spread over an 8,000-word article.
+    const long = computeScores(manyIssues, 8000);
+    expect(long.structure).toBeGreaterThan(0);
+    expect(long.overall).toBeGreaterThan(50);
+  });
+
+  it("still penalizes a short document with the same issue count", () => {
+    const short = computeScores(manyIssues, 500);
+    const long = computeScores(manyIssues, 8000);
+    expect(short.structure).toBeLessThan(long.structure);
+  });
+
+  it("scores a clean document 100 regardless of length", () => {
+    expect(computeScores([], 20000).overall).toBe(100);
+  });
+
+  it("is unchanged when no word count is supplied", () => {
+    expect(computeScores([{ category: "CLARITY", severity: "CRITICAL" }]).clarity).toBe(75);
+  });
+});

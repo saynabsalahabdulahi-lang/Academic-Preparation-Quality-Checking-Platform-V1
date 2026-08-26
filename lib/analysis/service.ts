@@ -142,8 +142,14 @@ export async function analyzeDocumentVersion(
   const issues = succeeded.flatMap((r) => r.value.issues);
   const partial = succeeded.length < settled.length;
 
+  const wordCount = version.sections.reduce(
+    (n, s) => n + (s.text.trim() ? s.text.trim().split(/\s+/).length : 0),
+    0,
+  );
+
   const scores = computeScores(
     issues.map((i) => ({ category: i.category, severity: i.severity })),
+    wordCount,
   );
 
   const check = await prisma.$transaction(async (tx) => {
