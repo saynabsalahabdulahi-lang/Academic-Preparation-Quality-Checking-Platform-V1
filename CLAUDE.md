@@ -27,6 +27,9 @@ Before committing, run **typecheck + lint + test + build**. Keep them all green.
 - **Storage only through `lib/storage` (`Storage`)**. Files go to object
   storage; the DB stores metadata + `storageKey`. Never store files in the DB;
   never expose blob URLs to the client (stream via `get()`).
+- **Credits are weighted by real cost** (`lib/credits/service.ts`): an analysis
+  runs one AI call per chunk, a rewrite one call per section, so analysis is
+  priced higher. Admins are exempt. Tune with `ANALYSIS_CREDITS` etc.
 - **Scores are computed from real checks** (`lib/analysis/score.ts`), never
   produced by the AI and never inflated because a rewrite happened.
 - **Meaning preservation**: rewrites must never invent findings/citations/

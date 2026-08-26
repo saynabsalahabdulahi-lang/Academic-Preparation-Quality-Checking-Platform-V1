@@ -9,6 +9,7 @@ import { ForbiddenError, NotFoundError } from "@/lib/auth/ownership";
 import {
   assertCredits,
   chargeCredits,
+  CREDIT_COSTS,
   InsufficientCreditsError,
 } from "@/lib/credits/service";
 
@@ -16,7 +17,6 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const VALID_ACTIONS = new Set(Object.values(RevisionAction));
-const REWRITE_CREDIT_COST = 1;
 
 export async function POST(
   request: Request,
@@ -58,7 +58,7 @@ export async function POST(
 
   let isAdmin = false;
   try {
-    ({ isAdmin } = await assertCredits(user.id, REWRITE_CREDIT_COST));
+    ({ isAdmin } = await assertCredits(user.id, CREDIT_COSTS.REWRITE));
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: err.message }, { status: 402 });
@@ -81,7 +81,7 @@ export async function POST(
     await chargeCredits({
       userId: user.id,
       action: "REWRITE",
-      cost: REWRITE_CREDIT_COST,
+      cost: CREDIT_COSTS.REWRITE,
       isAdmin,
       metadata: { documentId: id, revisionId: revision.id },
     });

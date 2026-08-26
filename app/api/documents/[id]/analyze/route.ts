@@ -7,14 +7,13 @@ import { analyzeDocumentVersion, AnalysisError } from "@/lib/analysis/service";
 import {
   assertCredits,
   chargeCredits,
+  CREDIT_COSTS,
   InsufficientCreditsError,
 } from "@/lib/credits/service";
 
 export const runtime = "nodejs";
 // Analysis can take longer than the default; request the max we can.
 export const maxDuration = 300;
-
-const ANALYSIS_CREDIT_COST = 1;
 
 export async function POST(
   _request: Request,
@@ -52,7 +51,7 @@ export async function POST(
   // Server-side credit check (administrators are not metered).
   let isAdmin = false;
   try {
-    ({ isAdmin } = await assertCredits(user.id, ANALYSIS_CREDIT_COST));
+    ({ isAdmin } = await assertCredits(user.id, CREDIT_COSTS.ANALYSIS));
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json({ error: err.message }, { status: 402 });
@@ -66,7 +65,7 @@ export async function POST(
     await chargeCredits({
       userId: user.id,
       action: "ANALYSIS",
-      cost: ANALYSIS_CREDIT_COST,
+      cost: CREDIT_COSTS.ANALYSIS,
       isAdmin,
       metadata: { documentId: document.id, checkId: result.checkId },
     });

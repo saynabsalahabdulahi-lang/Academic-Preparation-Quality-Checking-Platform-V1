@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { CATEGORY_LABELS } from "@/lib/documents/categories";
 import { AnalyzeButton } from "@/components/analyze-button";
+import { CREDIT_COSTS } from "@/lib/credits/service";
 import { ReadinessReport } from "@/components/readiness-report";
 import { VersionHistory } from "@/components/version-history";
 
@@ -96,6 +97,8 @@ export default async function DocumentPage({
           <AnalyzeButton
             documentId={document.id}
             hasAnalysis={Boolean(latestCheck)}
+            creditCost={CREDIT_COSTS.ANALYSIS}
+            unlimited={user.role === "ADMIN"}
           />
           {beforeScore !== null && afterScore !== null && (
             <div className="flex items-center gap-4 rounded-xl border border-slate-200 p-4 dark:border-slate-800">

@@ -6,9 +6,13 @@ import { useRouter } from "next/navigation";
 export function AnalyzeButton({
   documentId,
   hasAnalysis,
+  creditCost,
+  unlimited,
 }: {
   documentId: string;
   hasAnalysis: boolean;
+  creditCost: number;
+  unlimited: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -42,6 +46,13 @@ export function AnalyzeButton({
             ? "Check again"
             : "Run analysis"}
       </button>
+      {!pending && (
+        <span className="text-sm text-slate-500">
+          {unlimited
+            ? "No credits used"
+            : `Uses ${creditCost} credit${creditCost === 1 ? "" : "s"}`}
+        </span>
+      )}
       {error && <span className="text-sm text-red-600">{error}</span>}
     </div>
   );

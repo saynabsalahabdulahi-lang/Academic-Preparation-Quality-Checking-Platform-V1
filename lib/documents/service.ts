@@ -4,11 +4,13 @@ import { prisma } from "@/lib/db";
 import { getStorage, generateStorageKey } from "@/lib/storage";
 import { extractDocx } from "@/lib/docx/parse";
 import { DOCX_MIME } from "@/lib/upload/validate";
-import { assertCredits, chargeCredits } from "@/lib/credits/service";
+import {
+  assertCredits,
+  chargeCredits,
+  CREDIT_COSTS,
+} from "@/lib/credits/service";
 
 export { InsufficientCreditsError } from "@/lib/credits/service";
-
-const UPLOAD_CREDIT_COST = 1;
 
 /**
  * Create a document from a validated upload: store the file, create the
@@ -26,7 +28,7 @@ export async function createDocumentFromUpload(params: {
   const { ownerId, title, category, programId, buffer, filename } = params;
 
   // Enforce credits server-side (never trust the client).
-  const { isAdmin } = await assertCredits(ownerId, UPLOAD_CREDIT_COST);
+  const { isAdmin } = await assertCredits(ownerId, CREDIT_COSTS.DOCUMENT_UPLOAD);
 
   // Only link a program that actually exists; otherwise store none.
   let resolvedProgramId: string | null = null;
@@ -76,7 +78,7 @@ export async function createDocumentFromUpload(params: {
   await chargeCredits({
     userId: ownerId,
     action: "DOCUMENT_UPLOAD",
-    cost: UPLOAD_CREDIT_COST,
+    cost: CREDIT_COSTS.DOCUMENT_UPLOAD,
     isAdmin,
     metadata: { documentId: document.id },
   });
