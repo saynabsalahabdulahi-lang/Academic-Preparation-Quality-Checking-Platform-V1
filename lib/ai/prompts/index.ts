@@ -6,7 +6,7 @@
  * prompt that produced them (stored in Check.metadata).
  */
 
-export const PROMPT_VERSION = "2026-08-25.1";
+export const PROMPT_VERSION = "2026-08-25.2";
 
 // Shared guardrails injected into every rewrite/analysis prompt. These enforce
 // the product's integrity constraints (see MASTER PROMPT sections 9 & 20).
@@ -48,8 +48,13 @@ export function analyzePrompt(input: {
     "",
     "Analyze the document below and return a JSON object of the form:",
     `{"issues":[{"category":"...","severity":"...","location":"...","original_text":"...","explanation":"...","suggested_action":"...","suggested_revision":"..."}]}`,
-    "category must be one of the defined issue categories; severity one of",
-    "CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION.",
+    "Use these exact UPPERCASE values.",
+    "category: GRAMMAR, SPELLING, CLARITY, ACADEMIC_TONE, REPETITION,",
+    "PARAGRAPH_STRUCTURE, LOGICAL_FLOW, SECTION_STRUCTURE,",
+    "CITATION_CONSISTENCY, REFERENCE_CONSISTENCY, GUIDELINE_COMPLIANCE,",
+    "COMPLETENESS, TERMINOLOGY_CONSISTENCY.",
+    "severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION.",
+    "Report at most 15 of the most important issues.",
     "",
     "DOCUMENT:",
     input.text,
