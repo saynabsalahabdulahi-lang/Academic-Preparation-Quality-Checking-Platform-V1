@@ -4,13 +4,9 @@ import { prisma } from "@/lib/db";
 import { getStorage, generateStorageKey } from "@/lib/storage";
 import { extractDocx } from "@/lib/docx/parse";
 import { DOCX_MIME } from "@/lib/upload/validate";
+import { assertCredits, chargeCredits } from "@/lib/credits/service";
 
-export class InsufficientCreditsError extends Error {
-  constructor() {
-    super("You have no remaining credits.");
-    this.name = "InsufficientCreditsError";
-  }
-}
+export { InsufficientCreditsError } from "@/lib/credits/service";
 
 const UPLOAD_CREDIT_COST = 1;
 
@@ -30,13 +26,7 @@ export async function createDocumentFromUpload(params: {
   const { ownerId, title, category, programId, buffer, filename } = params;
 
   // Enforce credits server-side (never trust the client).
-  const user = await prisma.user.findUnique({
-    where: { id: ownerId },
-    select: { creditBalance: true },
-  });
-  if (!user || user.creditBalance < UPLOAD_CREDIT_COST) {
-    throw new InsufficientCreditsError();
-  }
+  const { isAdmin } = await assertCredits(ownerId, UPLOAD_CREDIT_COST);
 
   // Only link a program that actually exists; otherwise store none.
   let resolvedProgramId: string | null = null;
@@ -80,21 +70,15 @@ export async function createDocumentFromUpload(params: {
       data: { currentVersionId: version.id },
     });
 
-    await tx.user.update({
-      where: { id: ownerId },
-      data: { creditBalance: { decrement: UPLOAD_CREDIT_COST } },
-    });
-
-    await tx.usageRecord.create({
-      data: {
-        userId: ownerId,
-        action: "DOCUMENT_UPLOAD",
-        credits: UPLOAD_CREDIT_COST,
-        metadata: { documentId: doc.id },
-      },
-    });
-
     return { ...doc, currentVersionId: version.id };
+  });
+
+  await chargeCredits({
+    userId: ownerId,
+    action: "DOCUMENT_UPLOAD",
+    cost: UPLOAD_CREDIT_COST,
+    isAdmin,
+    metadata: { documentId: document.id },
   });
 
   return document;

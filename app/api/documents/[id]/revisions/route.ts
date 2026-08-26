@@ -6,6 +6,11 @@ import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { createSectionRevision } from "@/lib/revisions/service";
 import { ForbiddenError, NotFoundError } from "@/lib/auth/ownership";
+import {
+  assertCredits,
+  chargeCredits,
+  InsufficientCreditsError,
+} from "@/lib/credits/service";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -51,15 +56,14 @@ export async function POST(
     return NextResponse.json({ error: "Section not found." }, { status: 404 });
   }
 
-  const account = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { creditBalance: true },
-  });
-  if (!account || account.creditBalance < REWRITE_CREDIT_COST) {
-    return NextResponse.json(
-      { error: "You have no remaining credits." },
-      { status: 402 },
-    );
+  let isAdmin = false;
+  try {
+    ({ isAdmin } = await assertCredits(user.id, REWRITE_CREDIT_COST));
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: err.message }, { status: 402 });
+    }
+    throw err;
   }
 
   try {
@@ -74,20 +78,13 @@ export async function POST(
       styleGuidance: body?.styleGuidance ? String(body.styleGuidance) : undefined,
     });
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { creditBalance: { decrement: REWRITE_CREDIT_COST } },
-      }),
-      prisma.usageRecord.create({
-        data: {
-          userId: user.id,
-          action: "REWRITE",
-          credits: REWRITE_CREDIT_COST,
-          metadata: { documentId: id, revisionId: revision.id },
-        },
-      }),
-    ]);
+    await chargeCredits({
+      userId: user.id,
+      action: "REWRITE",
+      cost: REWRITE_CREDIT_COST,
+      isAdmin,
+      metadata: { documentId: id, revisionId: revision.id },
+    });
 
     return NextResponse.json({ revision }, { status: 201 });
   } catch (err) {

@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { analyzeDocumentVersion, AnalysisError } from "@/lib/analysis/service";
+import {
+  assertCredits,
+  chargeCredits,
+  InsufficientCreditsError,
+} from "@/lib/credits/service";
 
 export const runtime = "nodejs";
 // Analysis can take longer than the default; request the max we can.
@@ -44,35 +49,27 @@ export async function POST(
     );
   }
 
-  // Server-side credit check.
-  const account = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { creditBalance: true },
-  });
-  if (!account || account.creditBalance < ANALYSIS_CREDIT_COST) {
-    return NextResponse.json(
-      { error: "You have no remaining credits." },
-      { status: 402 },
-    );
+  // Server-side credit check (administrators are not metered).
+  let isAdmin = false;
+  try {
+    ({ isAdmin } = await assertCredits(user.id, ANALYSIS_CREDIT_COST));
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: err.message }, { status: 402 });
+    }
+    throw err;
   }
 
   try {
     const result = await analyzeDocumentVersion(document.currentVersionId);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { creditBalance: { decrement: ANALYSIS_CREDIT_COST } },
-      }),
-      prisma.usageRecord.create({
-        data: {
-          userId: user.id,
-          action: "ANALYSIS",
-          credits: ANALYSIS_CREDIT_COST,
-          metadata: { documentId: document.id, checkId: result.checkId },
-        },
-      }),
-    ]);
+    await chargeCredits({
+      userId: user.id,
+      action: "ANALYSIS",
+      cost: ANALYSIS_CREDIT_COST,
+      isAdmin,
+      metadata: { documentId: document.id, checkId: result.checkId },
+    });
 
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

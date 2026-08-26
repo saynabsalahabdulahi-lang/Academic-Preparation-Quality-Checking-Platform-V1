@@ -34,8 +34,16 @@ export default async function AdminPage() {
       <Link href="/dashboard" className="text-sm text-brand-600">
         ← Back to dashboard
       </Link>
-      <h1 className="mb-1 mt-4 text-2xl font-bold">Universities &amp; guidelines</h1>
-      <p className="mb-8 text-sm text-slate-500">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Universities &amp; guidelines</h1>
+        <Link
+          href="/admin/users"
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+        >
+          Students &amp; credits →
+        </Link>
+      </div>
+      <p className="mb-8 mt-1 text-sm text-slate-500">
         Add a university, then its colleges, departments and programs. Set the
         writing rules on a program so uploaded documents are checked against
         them.
