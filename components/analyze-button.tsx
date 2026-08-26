@@ -23,7 +23,7 @@ export function AnalyzeButton({
     setPending(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Analysis failed.");
+      setError(data.error ?? `Analysis failed (${res.status}).`);
       return;
     }
     router.refresh();

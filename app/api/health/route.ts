@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { getStorage, generateStorageKey } from "@/lib/storage";
+import { getAIProvider } from "@/lib/ai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 /** Round-trip a tiny file through storage to surface the real error, if any. */
 async function testStorage(): Promise<string> {
@@ -18,6 +20,20 @@ async function testStorage(): Promise<string> {
     return value === "ok" ? "working" : "read-back mismatch";
   } catch (err) {
     return `error: ${err instanceof Error ? err.message.slice(0, 200) : "unknown"}`;
+  }
+}
+
+/** Run one tiny analysis call to surface the real AI error, if any. */
+async function testAI(): Promise<string> {
+  try {
+    const started = Date.now();
+    const result = await getAIProvider().analyzeDocument({
+      text: "This sentance have a grammar problem and it are unclear.",
+      documentCategory: "ASSIGNMENT",
+    });
+    return `working (${result.issues.length} issues, ${Date.now() - started}ms)`;
+  } catch (err) {
+    return `error: ${err instanceof Error ? err.message.slice(0, 300) : "unknown"}`;
   }
 }
 
@@ -54,16 +70,17 @@ export async function GET(request: Request) {
     database === "connected" &&
     tables === "ready";
 
-  const wantsStorageTest =
-    new URL(request.url).searchParams.get("test") === "storage";
-  const storage = wantsStorageTest ? await testStorage() : "not tested";
+  const test = new URL(request.url).searchParams.get("test");
+  const storage = test === "storage" ? await testStorage() : "not tested";
+  const ai = test === "ai" ? await testAI() : "not tested";
 
   return NextResponse.json(
     {
       ready,
-      version: "2025-08-25-storage-fix",
+      version: "2025-08-25-analysis-fix",
       env,
       storage,
+      ai,
       database,
       tables,
       uploads_configured: env.BLOB_READ_WRITE_TOKEN,

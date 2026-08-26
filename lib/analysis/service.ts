@@ -10,6 +10,31 @@ import type { GuidelineContext } from "@/lib/ai/provider";
 // mid-JSON) and the chunks run concurrently to stay inside the request budget.
 const CHUNK_CHARS = 6_000;
 const MAX_CHUNKS = 8;
+const CONCURRENCY = 3;
+
+/** Run `fn` over items, at most `limit` at a time, never rejecting. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      try {
+        results[index] = { status: "fulfilled", value: await fn(items[index]) };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 export class AnalysisError extends Error {
   constructor(message: string) {
@@ -90,16 +115,15 @@ export async function analyzeDocumentVersion(
 
   const provider = opts?.provider ?? getAIProvider();
 
-  // Analyse chunks concurrently and merge. One failing chunk must not lose the
-  // whole report, but if every chunk fails the analysis genuinely failed.
-  const settled = await Promise.allSettled(
-    chunks.map((text) =>
-      provider.analyzeDocument({
-        text,
-        documentCategory: document.category,
-        guideline: guidelineContext,
-      }),
-    ),
+  // Analyse chunks with bounded concurrency and merge. One failing chunk must
+  // not lose the whole report, but if every chunk fails the analysis genuinely
+  // failed. The concurrency cap keeps us within provider rate limits.
+  const settled = await mapWithConcurrency(chunks, CONCURRENCY, (text) =>
+    provider.analyzeDocument({
+      text,
+      documentCategory: document.category,
+      guideline: guidelineContext,
+    }),
   );
 
   const succeeded = settled.filter(

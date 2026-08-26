@@ -7,7 +7,7 @@ import { analyzeDocumentVersion, AnalysisError } from "@/lib/analysis/service";
 
 export const runtime = "nodejs";
 // Analysis can take longer than the default; request the max we can.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const ANALYSIS_CREDIT_COST = 1;
 

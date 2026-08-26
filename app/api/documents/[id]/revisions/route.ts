@@ -8,7 +8,7 @@ import { createSectionRevision } from "@/lib/revisions/service";
 import { ForbiddenError, NotFoundError } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const VALID_ACTIONS = new Set(Object.values(RevisionAction));
 const REWRITE_CREDIT_COST = 1;
