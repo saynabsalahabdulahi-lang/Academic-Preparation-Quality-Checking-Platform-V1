@@ -77,7 +77,28 @@ export async function POST(
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
     if (err instanceof AnalysisError) {
-      return NextResponse.json({ error: err.message }, { status: 422 });
+      // Translate provider billing/auth problems into something a student can
+      // act on, without exposing internal details.
+      const raw = err.message;
+      if (/credit balance is too low|insufficient/i.test(raw)) {
+        return NextResponse.json(
+          {
+            error:
+              "The analysis service is out of credit. Please top up the Anthropic API balance, then try again.",
+          },
+          { status: 402 },
+        );
+      }
+      if (/authentication|invalid x-api-key|401/i.test(raw)) {
+        return NextResponse.json(
+          {
+            error:
+              "The analysis service key is not valid. Please check ANTHROPIC_API_KEY.",
+          },
+          { status: 401 },
+        );
+      }
+      return NextResponse.json({ error: raw }, { status: 422 });
     }
     // AI/provider failures must not leak internals to the student.
     console.error("Analysis failed:", err);

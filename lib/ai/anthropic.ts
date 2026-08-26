@@ -155,6 +155,10 @@ export class AnthropicProvider implements AIProvider {
         const raw = await this.complete(system, prompt, effort);
         return schema.parse(extractJson(raw));
       } catch (err) {
+        // Only a malformed or invalid *response* is worth asking again for.
+        // Re-sending after an API error (bad key, exhausted credit, invalid
+        // request) cannot succeed and would be billed a second time.
+        if (err instanceof Anthropic.APIError) throw err;
         lastError = err;
       }
     }
