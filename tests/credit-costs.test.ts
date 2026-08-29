@@ -26,3 +26,18 @@ describe("credit metering switch", () => {
     expect(CREDITS_ENABLED).toBe(true);
   });
 });
+
+describe("rewrite actions", () => {
+  it("offers a combined action first so one credit covers every improvement", async () => {
+    const { ACTION_OPTIONS } = await import("@/lib/revisions/actions");
+    expect(ACTION_OPTIONS[0].value).toBe("IMPROVE_ALL");
+  });
+
+  it("gives the combined action a prompt covering all improvements", async () => {
+    const { rewritePrompt } = await import("@/lib/ai/prompts");
+    const prompt = rewritePrompt({ text: "x", action: "IMPROVE_ALL" });
+    for (const goal of ["grammar", "clarity", "tone", "flow", "repetition"]) {
+      expect(prompt.toLowerCase()).toContain(goal);
+    }
+  });
+});

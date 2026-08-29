@@ -94,6 +94,7 @@ enum IssueCategory {
 }
 
 enum RevisionAction {
+  IMPROVE_ALL
   CORRECT_GRAMMAR
   IMPROVE_CLARITY
   IMPROVE_TONE

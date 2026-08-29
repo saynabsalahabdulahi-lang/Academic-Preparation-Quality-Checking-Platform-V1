@@ -287,7 +287,7 @@ function SectionCard({
                 Edit
               </ActionBtn>
               <ActionBtn
-                onClick={() => onAction(section.id, "IMPROVE_CLARITY", rev.id)}
+                onClick={() => onAction(section.id, "IMPROVE_ALL", rev.id)}
                 disabled={busy}
               >
                 Rewrite again

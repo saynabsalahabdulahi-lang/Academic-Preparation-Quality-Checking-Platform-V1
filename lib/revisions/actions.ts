@@ -1,6 +1,9 @@
 import { RevisionAction } from "@prisma/client";
 
+// IMPROVE_ALL is listed first: it applies every improvement in a single pass,
+// which costs one credit instead of one per action.
 export const ACTION_LABELS: Record<RevisionAction, string> = {
+  IMPROVE_ALL: "Improve Everything (recommended)",
   CORRECT_GRAMMAR: "Correct Grammar",
   IMPROVE_CLARITY: "Improve Clarity",
   IMPROVE_TONE: "Improve Academic Tone",

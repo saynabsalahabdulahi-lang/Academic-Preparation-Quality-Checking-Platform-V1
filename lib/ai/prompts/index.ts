@@ -6,7 +6,7 @@
  * prompt that produced them (stored in Check.metadata).
  */
 
-export const PROMPT_VERSION = "2026-08-25.3";
+export const PROMPT_VERSION = "2026-08-25.4";
 
 // Shared guardrails injected into every rewrite/analysis prompt. These enforce
 // the product's integrity constraints (see MASTER PROMPT sections 9 & 20).
@@ -77,6 +77,38 @@ export function analyzePrompt(input: {
     .join("\n");
 }
 
+/**
+ * What each action asks of the model. Spelling out the goal produces better
+ * revisions than passing the bare enum name, and IMPROVE_ALL applies every
+ * improvement in one pass so a student needs one request, not seven.
+ */
+const ACTION_INSTRUCTIONS: Record<string, string> = {
+  IMPROVE_ALL: [
+    "Improve this passage in every respect at once:",
+    "- correct grammar, spelling and punctuation",
+    "- improve clarity and remove ambiguity",
+    "- raise the academic tone and remove informal wording",
+    "- improve paragraph flow and transitions",
+    "- reduce needless repetition",
+    "- improve sentence structure and variety",
+    "Make every improvement in a single revision.",
+  ].join("\n"),
+  CORRECT_GRAMMAR:
+    "Correct grammar, spelling and punctuation only. Do not restyle the prose.",
+  IMPROVE_CLARITY:
+    "Make the meaning clearer and remove ambiguity, keeping the author's wording where it already works.",
+  IMPROVE_TONE:
+    "Raise the academic tone and remove informal or conversational wording.",
+  IMPROVE_FLOW:
+    "Improve the flow between sentences and the paragraph's internal logic, adding transitions where they help.",
+  REDUCE_REPETITION:
+    "Remove needless repetition of words and ideas without losing any content.",
+  IMPROVE_SENTENCE_STRUCTURE:
+    "Improve sentence structure and vary sentence length, keeping every idea intact.",
+  REWRITE_IN_STYLE:
+    "Revise so the passage reads consistently with the student's own established writing style.",
+};
+
 export function rewritePrompt(input: {
   text: string;
   action: string;
@@ -84,7 +116,7 @@ export function rewritePrompt(input: {
   styleGuidance?: string;
 }): string {
   return [
-    `Improvement goal: ${input.action}`,
+    ACTION_INSTRUCTIONS[input.action] ?? `Improvement goal: ${input.action}`,
     input.styleGuidance
       ? `Match this writing-style guidance: ${input.styleGuidance}`
       : "",
