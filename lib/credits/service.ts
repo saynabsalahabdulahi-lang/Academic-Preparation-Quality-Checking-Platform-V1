@@ -31,7 +31,9 @@ export const CREDIT_COSTS = {
 } as const;
 
 export class InsufficientCreditsError extends Error {
-  constructor(message = "You do not have enough credits left.") {
+  constructor(
+    message = "You have used all the credits for your free document. Contact your administrator to continue.",
+  ) {
     super(message);
     this.name = "InsufficientCreditsError";
   }
